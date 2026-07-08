@@ -25,6 +25,14 @@ setup(
     entry_points={
         'console_scripts': [
             'cartesian_impedance_node = omy_impedance_control.cartesian_impedance_node:main',
+            'cartesian_impedance_real_node = '
+            'omy_impedance_control.cartesian_impedance_real_node:main',
+            'cartesian_impedance_real_teleop_node = '
+            'omy_impedance_control.cartesian_impedance_real_teleop_node:main',
+            'cartesian_impedance_position_real_node = '
+            'omy_impedance_control.cartesian_impedance_position_real_node:main',
+            'leader_tcp_target_node = '
+            'omy_impedance_control.leader_tcp_target_node:main',
         ],
     },
 )

@@ -15,20 +15,20 @@ def T_from_Rp(R: np.ndarray, p: np.ndarray) -> np.ndarray:
 @dataclasses.dataclass
 class OMYConfig:
     xml_path: str
-    ee_body: str = "link6"
-    base_body: str = "base_link"
+    ee_body: str = 'link6'
+    base_body: str = 'base_link'
     tcp_offset_in_ee: np.ndarray = dataclasses.field(
         default_factory=lambda: np.array([0.0, -0.109, 0.0], dtype=float)
     )
     arm_joint_names: Tuple[str, ...] = (
-        "joint1",
-        "joint2",
-        "joint3",
-        "joint4",
-        "joint5",
-        "joint6",
+        'joint1',
+        'joint2',
+        'joint3',
+        'joint4',
+        'joint5',
+        'joint6',
     )
-    gripper_act_name: str = "Gripper"
+    gripper_act_name: str = 'Gripper'
     dt: float = 0.002
 
 
@@ -98,10 +98,7 @@ class OMYRobot:
         mujoco.mj_forward(self.model, self.data)
 
     def set_arm_state(self, q: np.ndarray, qdot: np.ndarray) -> None:
-        """
-        ROS 2 / Gazebo에서 받은 joint state를 MuJoCo model에 반영한다.
-        이후 mj_forward()를 호출해야 FK, Jacobian, M, bias가 현재 q 기준으로 계산된다.
-        """
+        """Copy ROS joint state into the MuJoCo model."""
         q = np.asarray(q, dtype=float).reshape(6)
         qdot = np.asarray(qdot, dtype=float).reshape(6)
 
@@ -163,7 +160,7 @@ class OMYRobot:
         return self.data.qfrc_actuator[self.arm_dof_ids].copy()
 
     def actuator_force_limits_arm(self) -> tuple[np.ndarray, np.ndarray]:
-        if not getattr(self, "has_arm_actuators", False):
+        if not getattr(self, 'has_arm_actuators', False):
             lows = -np.ones(6) * 30.0
             highs = np.ones(6) * 30.0
             return lows, highs

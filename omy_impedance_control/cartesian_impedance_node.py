@@ -6,11 +6,11 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 
-from .omy import OMYConfig, OMYRobot
 from .cartesian_impedance_control import (
-    CartesianImpedanceGains,
     CartesianImpedanceController,
+    CartesianImpedanceGains,
 )
+from .omy import OMYConfig, OMYRobot
 
 
 class CartesianImpedanceNode(Node):
@@ -20,8 +20,10 @@ class CartesianImpedanceNode(Node):
         # -----------------------------
         # Parameters
         # -----------------------------
-        self.declare_parameter('xml_path', '')
-        self.declare_parameter('control_rate', 200.0)
+        self.declare_parameter('xml_path', '/root/ros2_ws/src/omy_impedance_control/models/omy_f3m_mujoco.urdf')
+        self.declare_parameter('control_rate', 400.0)
+        self.declare_parameter('joint_states_topic', '/gazebo_joint_states')
+        self.declare_parameter('command_topic', '/gazebo_arm_controller/commands')
 
         self.declare_parameter('target_offset', [0.0, 0.0, 0.0])
 
@@ -51,8 +53,10 @@ class CartesianImpedanceNode(Node):
                 'Run with --ros-args -p xml_path:=/path/to/omy.xml'
             )
 
-        control_rate = float(self.get_parameter('control_rate').value)
-        self.dt = 1.0 / control_rate
+        self.control_rate = float(self.get_parameter('control_rate').value)
+        self.dt = 1.0 / self.control_rate
+        self.joint_states_topic = str(self.get_parameter('joint_states_topic').value)
+        self.command_topic = str(self.get_parameter('command_topic').value)
 
         self.target_offset = np.array(
             self.get_parameter('target_offset').value,
@@ -124,14 +128,14 @@ class CartesianImpedanceNode(Node):
         # -----------------------------
         self.joint_state_sub = self.create_subscription(
             JointState,
-            '/joint_states',
+            self.joint_states_topic,
             self.joint_state_callback,
             10,
         )
 
         self.torque_pub = self.create_publisher(
             Float64MultiArray,
-            '/arm_controller/commands',
+            self.command_topic,
             10,
         )
 
@@ -139,7 +143,9 @@ class CartesianImpedanceNode(Node):
 
         self.get_logger().info('Cartesian impedance node started.')
         self.get_logger().info(f'xml_path: {xml_path}')
-        self.get_logger().info(f'control_rate: {control_rate} Hz')
+        self.get_logger().info(f'control_rate: {self.control_rate} Hz')
+        self.get_logger().info(f'joint_states_topic: {self.joint_states_topic}')
+        self.get_logger().info(f'command_topic: {self.command_topic}')
         self.get_logger().info(f'target_offset: {self.target_offset}')
         self.get_logger().info(f'k_pos: {k_pos}')
         self.get_logger().info(f'd_pos: {d_pos}')
@@ -155,7 +161,7 @@ class CartesianImpedanceNode(Node):
         for i, joint_name in enumerate(self.joint_names):
             if joint_name not in name_to_index:
                 self.get_logger().warn(
-                    f'{joint_name} not found in /joint_states',
+                    f'{joint_name} not found in {self.joint_states_topic}',
                     throttle_duration_sec=2.0,
                 )
                 return
@@ -224,23 +230,20 @@ class CartesianImpedanceNode(Node):
         self.publish_torque(tau)
 
         # 디버깅 로그: 1초에 한 번 정도만 출력
-        if self.cycle_count % 200 == 0:
+        if self.cycle_count % self.control_rate == 0:
             x_err = self.controller.last_x_error
             tau_task = self.controller.last_tau_task
             tau_posture = self.controller.last_tau_posture
             tau_bias = self.controller.last_tau_bias
 
             self.get_logger().info(
-                'x_err = '
-                f'{np.array2string(x_err, precision=4)}, '
-                'tau = '
-                f'{np.array2string(tau, precision=3)}, '
-                'task = '
-                f'{np.array2string(tau_task, precision=3)}, '
-                'posture = '
-                f'{np.array2string(tau_posture, precision=3)}, '
-                'bias = '
-                f'{np.array2string(tau_bias, precision=3)}'
+                '\n'
+                '--- Cartesian impedance debug ---\n'
+                f'x_err        : {np.array2string(x_err, precision=4)}\n'
+                f'tau [Nm]     : {np.array2string(tau, precision=3)}\n'
+                f'task         : {np.array2string(tau_task, precision=3)}\n'
+                f'posture      : {np.array2string(tau_posture, precision=3)}\n'
+                f'bias         : {np.array2string(tau_bias, precision=3)}'
             )
 
         self.cycle_count += 1
